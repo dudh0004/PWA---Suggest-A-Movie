@@ -1,3 +1,7 @@
+import {
+  get,
+  set
+} from 'https://cdn.jsdelivr.net/npm/idb-keyval@5/dist/esm/index.js';
 const APP = {
   BASE_URL: 'https://api.themoviedb.org/3/',
   IMG_URL: 'https://image.tmdb.org/t/p/',
@@ -6,66 +10,84 @@ const APP = {
   poster_sizes: ['w92', 'w154', 'w185', 'w342', 'w500', 'w780', 'original'],
   profile_sizes: ['w45', 'w185', 'h632', 'original'],
   still_sizes: ['w92', 'w185', 'w300', 'original'],
-  API_KEY: 'your-api-key-goes-here',
+  API_KEY: '819ff85b3d0216f0611f8ae0e97b2227',
   isOnline: 'onLine' in navigator && navigator.onLine,
   isStandalone: false,
-  sw: null, //your service worker
-  db: null, //your database
-  dbVersion: 1,
+  sw: null, 
+  keyword:'',
+  deferredPrompt:true,
   init() {
-    //register service worker
     if ('serviceWorker' in navigator) {
-      //listen for controllerchange events
-      //listen for message events
-    }
-    //open the database
-    APP.openDB();
+        navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        })
+        .then(registration => {
+        APP.sw = registration.installing ||
+                  registration.waiting || 
+                  registration.active;
+                console.log('service worker registered');
+      });
+      (error) => {
+        console.log('Service worker registration failed:', error);
+      };
 
-    //run the pageLoaded function
+      if(navigator.serviceWorker.controller){
+        console.log('we have a service worker installed.');
+      }
+
+      navigator.serviceWorker.oncontrollerchange = (ev) => {
+        console.log('New service worker activated');
+      };
+      navigator.serviceWorker.addEventListener('message', APP.onMessage);
+    } else {
+      console.log('Service workers are not supported.');
+    }
+  
     APP.pageLoaded();
 
-    //add UI listeners
     APP.addListeners();
 
     //check if the app was launched from installed version
     if (navigator.standalone) {
-      // console.log('Launched: Installed (iOS)');
       APP.isStandalone = true;
     } else if (matchMedia('(display-mode: standalone)').matches) {
-      // console.log('Launched: Installed');
       APP.isStandalone = true;
     } else {
-      // console.log('Launched: Browser Tab');
       APP.isStandalone = false;
     }
   },
   pageLoaded() {
-    //page has just loaded and we need to check the queryString
-    //based on the querystring value(s) run the page specific tasks
-    // console.log('page loaded and checking', location.search);
     let params = new URL(document.location).searchParams;
     let keyword = params.get('keyword');
+    APP.keyword = keyword;
     if (keyword) {
-      //means we are on results.html
       console.log(`on results.html - startSearch(${keyword})`);
       APP.startSearch(keyword);
     }
     let mid = parseInt(params.get('movie_id'));
     let ref = params.get('ref');
     if (mid && ref) {
-      //we are on suggest.html
       console.log(`look in db for movie_id ${mid} or do fetch`);
-      APP.startSuggest({ mid, ref });
+      APP.startSuggest({ mid, ref});
     }
   },
   addListeners() {
-    //TODO:
-    //listen for on and off line events
+    window.addEventListener('online', (ev) => {
+      console.log('you are online');
+    });
+    window.addEventListener('offline', (ev) => {
+      console.log('you are offline');
+    });
+    
+    window.addEventListener('beforeinstallprompt', (ev) => {
+      ev.preventDefault();
+      APP.deferredPrompt = ev;
+      console.log('saved the install event');
+    });
 
-    //TODO:
-    //listen for Chrome install prompt
-    //handle the deferredPrompt
-
+    let search = document.getElementById('search');
+    search.addEventListener('click',APP.startChromeInstall);
+  
     //listen for sign that app was installed
     window.addEventListener('appinstalled', (evt) => {
       console.log('app was installed');
@@ -79,6 +101,7 @@ const APP = {
         //build the queryString and go to the results page
         let searchInput = document.getElementById('search');
         let keyword = searchInput.value.trim();
+        APP.keyword = keyword;
         if (keyword) {
           let base = location.origin;
           let url = new URL('./results.html', base);
@@ -88,12 +111,8 @@ const APP = {
       });
     }
 
-    //listen for the click of movie div
-    //to handle clicks of the suggest a movie buttons
     let movies = document.querySelector('.movies');
     if (movies) {
-      //navigate to the suggested page
-      //build the queryString with movie id and ref title
       movies.addEventListener('click', (ev) => {
         ev.preventDefault();
         let anchor = ev.target;
@@ -109,33 +128,61 @@ const APP = {
       });
     }
   },
-  sendMessage(msg, target) {
-    //TODO:
-    //send a message to the service worker
+  async startChromeInstall() {
+    let countvalue = 'PromptValue';
+    let Value = await get(`${countvalue}`);
+    console.log(Value);
+    if(!Value) {
+      console.log('value undefined');
+      if(APP.deferredPrompt) {
+        console.log(APP.deferredPrompt);
+        APP.deferredPrompt.prompt();
+        APP.deferredPrompt.userChoice.then(choice=>{
+        if(choice.outcome == 'accepted'){
+          console.log('installed');
+        } else {
+          console.log('cancel');
+        }
+      });
+    }
+    set(`${countvalue}`, 1);
+    }
+  },
+  sendMessage(msg) {
+    if(navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage(msg);
+    }
   },
   onMessage({ data }) {
-    //TODO:
-    //message received from service worker
+    console.log('Web page receiving', data)
   },
-  startSearch(keyword) {
-    //TODO: check in IDB for movie results
-    if (keyword) {
-      //check the db
-      //if no matches make a fetch call to TMDB API
-      //or make the fetch call and intercept it in the SW
-      let url = `${APP.BASE_URL}search/movie?api_key=${APP.API_KEY}&query=${keyword}`;
+  async startSearch(keyword) {
+    let para = document.querySelector('.para1');
+    para.textContent = `Search Results for ${APP.keyword}`;
 
-      APP.getData(url, (data) => {
-        //this is the CALLBACK to run after the fetch
+    if (keyword) {
+      let results = await get(`${APP.keyword}`);
+      let url = `${APP.BASE_URL}search/movie?api_key=${APP.API_KEY}&query=${keyword}`;
+      if(results)
+      {
+        APP.results = results;
+        APP.sendMessage({movieList: APP.results});
+        APP.useSearchResults(APP.results);
+        console.log('Data fetched from IndexedDB');
+      } else {
+        APP.getData(url, (data) => {
+        set(`${APP.keyword}`, data.results);
+        console.log('Data fetched from API');
         APP.results = data.results;
+        console.log(APP.results);
+
+        APP.sendMessage({movieList: data.results});
         APP.useSearchResults(keyword);
       });
     }
-  },
+  }
+},
   useSearchResults(keyword) {
-    //after getting fetch or db results
-    //display search keyword in title
-    //then call buildList
     let movies = APP.results;
     let keywordSpan = document.querySelector('.ref-keyword');
     if (keyword && keywordSpan) {
@@ -143,26 +190,32 @@ const APP = {
     }
     APP.buildList(movies);
   },
-  startSuggest({ mid, ref }) {
-    //TODO: Do the search of IndexedDB for matches
-    //if no matches to a fetch call to TMDB API
-    //or make the fetch call and intercept it in the SW
-
+  async startSuggest({ mid, ref }) {
+    let results = await get(`Suggest-${mid}`);
     let url = `${APP.BASE_URL}movie/${mid}/similar?api_key=${APP.API_KEY}&ref=${ref}`;
-    //TODO: choose between /similar and /suggested endpoints from API
 
-    APP.getData(url, (data) => {
-      //this is the callback that will be used after fetch
-      APP.suggestedResults = data.results;
-      APP.useSuggestedResults(ref);
+    let para1 = document.querySelector('.para2');
+    para1.textContent = `Suggested Movies based on ${ref}`;
+    
+    if(results)
+      {
+        APP.results = results;
+        console.log('Suggested movie from indexedDB');
+        APP.sendMessage({movieList: APP.results});
+        APP.useSearchResults(ref);
+      } else {
+        APP.getData(url, (data) => {
+        set(`Suggest-${mid}`, data.results);
+          console.log('Suggested movie from fetch API');
+        APP.suggestedResults = data.results;
+        APP.useSuggestedResults(ref);
     });
-  },
+  };
+},
   useSuggestedResults(ref) {
-    //after getting fetch/db results
-    //display reference movie name in title
-    //then call buildList
     let movies = APP.suggestedResults;
     let titleSpan = document.querySelector('#suggested .ref-movie');
+
     console.log('ref title', ref);
     if (ref && titleSpan) {
       titleSpan.textContent = ref;
@@ -189,10 +242,8 @@ const APP = {
       });
   },
   buildList: (movies) => {
-    //build the list of cards inside the current page
     console.log(`show ${movies.length} cards`);
     let container = document.querySelector(`.movies`);
-    //TODO: customize this HTML to make it your own
     if (container) {
       if (movies.length > 0) {
         container.innerHTML = movies
@@ -201,41 +252,33 @@ const APP = {
             if (obj.poster_path != null) {
               img = APP.IMG_URL + 'w500/' + obj.poster_path;
             }
-            return `<div class="card hoverable large" data-id="${obj.id}">
+            return `<div class="card large" data-id="${obj.id}">
           <div class="card-image">
-            <img src="${img}" alt="movie poster" class="notmaterialboxed"/>
+            <img src="${img}" alt="movie poster" />
             </div>
           <div class="card-content activator">
-            <h3 class="card-title"><span>${obj.title}</span><i class="material-icons right">more_vert</i></h3>
+            <h3 class="card-title purple-text text-darken-1"><span>${obj.title}</span><i class="material-icons right">more_vert</i></h3>
           </div>
           <div class="card-reveal">
-            <span class="card-title grey-text text-darken-4">${obj.title}<i class="material-icons right">close</i></span>
-            <h6>${obj.release_date}</h6>
-            <p>${obj.overview}</p>
+            <span class="card-title purple-text purple-darken-4">${obj.title}<i class="material-icons right">close</i></span>
+            <h6 class="purple-text purple-lighten-5">${obj.release_date}</h6>
+            <p class="purple-text purple-accent-4">${obj.overview}</p>
           </div>
           <div class="card-action">
-            <a href="#" class="find-suggested light-blue-text text-darken-3">Show Similar<i class="material-icons right">search</i></a>
+            <a href="./suggest.html" class="find-suggested light-blue-text text-darken-3">Show Similar</a>
           </div>
-        </div>`;
+        </div>`
           })
           .join('\n');
       } else {
         //no cards
-        container.innerHTML = `<div class="card hoverable">
+        container.innerHTML = `<div class="card">
           <div class="card-content">
             <h3 class="card-title activator"><span>No Content Available.</span></h3>
           </div>
         </div>`;
       }
     }
-  },
-  openDB() {
-    //TODO:
-    //open the indexedDB
-    //upgradeneeded listener
-    //success listener
-    //save db reference as APP.db
-    //error listener
   },
 };
 

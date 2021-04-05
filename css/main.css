@@ -1,15 +1,20 @@
-.page {
-  display: block;
-  min-height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateY(-200%);
-  transition: transform 0.5s linear;
-  padding-top: 3rem;
+.card{
+  width: 100%;
 }
-.page.active {
-  transform: translateY(0);
+
+.welcome{
+  font-size: 4rem;
+  text-align: center;
+}
+
+.modal{
+  width: 100%;
+}
+
+@media all and (min-width: 600px) 
+{
+  .card{
+    max-width: 30rem; 
+  }
+
 }

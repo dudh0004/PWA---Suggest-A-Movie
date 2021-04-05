@@ -4,14 +4,15 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>App Title</title>
+    <title>My_PWA</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- pwa manifest and android support meta and link tags-->
-    <link rel="manifest" href="#" />
-    <meta name="theme-color" content="#" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#ba68c8" />
 
     <!-- ios support link and meta tags-->
-    <link rel="apple-touch-icon" href="#" />
-    <meta name="apple-mobile-web-app-status-bar" content="#" />
+    <link rel="apple-touch-icon" href="./img/icon-192x192.png" />
+    <meta name="apple-mobile-web-app-status-bar" content="#ba68c8" />
 
     <!--Import Google Icon Font-->
 
@@ -21,34 +22,25 @@
 
     <!-- scripts materialize and main app -->
     <script src="./js/materialize.min.js"></script>
-    <script src="./js/app.js"></script>
+    <script src="./js/app.js" type="module"></script>
   </head>
   <body>
-    <section class="page" id="">
-      <div class="container">
-        <h4 class="">Page Title</h4>
-      </div>
-    </section>
 
-    <!-- components over top -->
-    <!-- nav bar -->
-    <nav>
+    <nav class="purple">
       <div class="nav-wrapper">
-        <a href="index.html" class="brand-logo left">App Title</a>
+        <a href="index.html" class="brand-logo left">Suggest-A-Film</a>
       </div>
     </nav>
-
-    <!-- search bar -->
-    <div class="nav-wrapper z-depth-3 hide" id="searchBar">
-      <form name="searchForm" id="searchForm">
+    
+    <form name="searchForm" id="searchForm">
         <div class="input-field">
-          <input id="search" type="search" required />
-          <label class="label-icon" for="search"
-            ><i class="material-icons">search</i></label
-          >
+          <input id="search" type="search" class="purple lighten-5" required placeholder="Search movies here"/>
           <i class="material-icons" id="closeSearchBtn">close</i>
         </div>
-      </form>
-    </div>
+    </form>
+
+      <div class="welcome">
+        <p class="purple-text text-darken-4">Welcome to my PWA app, Please search a movie that you want.</p>
+      </div>
   </body>
 </html>
